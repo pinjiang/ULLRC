@@ -297,6 +297,7 @@ async def handler(ws, path):
     '''
     raddr = ws.remote_address
     print("Connected to {!r}".format(raddr))
+    await ws.send('hello')
     helloMsg = await hello_peer(ws)
     try:
         await connection_handler(ws, helloMsg)

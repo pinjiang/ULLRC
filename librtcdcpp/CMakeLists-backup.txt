@@ -28,10 +28,7 @@ set(LIB_HEADERS
         include/rtcdcpp/NiceWrapper.hpp
         include/rtcdcpp/PeerConnection.hpp
         include/rtcdcpp/RTCCertificate.hpp
-        include/rtcdcpp/SCTPWrapper.hpp
-        include/serial/serial.h
-        include/serial/timeout.h
-        include/autolabor/autolabor.h)
+        include/rtcdcpp/SCTPWrapper.hpp)
 
 set(LIB_SOURCES
         src/DataChannel.cpp
@@ -40,10 +37,7 @@ set(LIB_SOURCES
         src/NiceWrapper.cpp
         src/PeerConnection.cpp
         src/RTCCertificate.cpp
-        src/SCTPWrapper.cpp
-        src/serial.cpp
-        src/timeout.cpp
-        src/autolabor.cpp)
+        src/SCTPWrapper.cpp)
 
 add_library(rtcdcpp SHARED
         ${LIB_HEADERS}
@@ -72,4 +66,4 @@ target_link_libraries(rtcdcpp
 add_library(LibRtcdcpp::LibRtcdcpp ALIAS rtcdcpp)
 
 # Build examples
-add_subdirectory(examples)
+add_subdirectory(examples/websocket_client)

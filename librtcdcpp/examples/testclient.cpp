@@ -4,6 +4,10 @@
 
 #include "WebSocketWrapper.hpp"
 #include "json/json.h"
+/* added by yaokabin 20180912 */
+#include "serial/serial.h"
+#include "autolabor/autolabor.h"
+/* end */
 
 #include <rtcdcpp/PeerConnection.hpp>
 #include <rtcdcpp/Logging.hpp>
@@ -11,6 +15,8 @@
 #include <ios>
 #include <iostream>
 #include <fstream>
+#include <sstream>
+#include <stdlib.h>
 
 using namespace rtcdcpp;
 
@@ -36,6 +42,14 @@ std::string createId() {
   return "220";
 }
 
+void print_hex(uint8_t* data, int length) {
+  for (int i = 0; i < length; i++) {
+    std::cout << (*(data + i)) + 0 << " ";
+  }
+  std::cout << std::endl;
+}
+/* end */
+
 int main() {
 #ifndef SPDLOG_DISABLED
   auto console_sink = std::make_shared<spdlog::sinks::ansicolor_stdout_sink_mt>();
@@ -45,9 +59,18 @@ int main() {
   // spdlog::create("rtcdcpp.DTLS", console_sink);
   spdlog::set_level(spdlog::level::debug);
 #endif
+  /* added by yaokaibin 2018091 */
+  const char* serialName = "/dev/ttyUSB0";
+  Autolabor autolabor;
+  serial serial;
+  char result = serial.Open(serialName, 115200, 8, NO, 1);
+  if (result == 0) {
+    std::cout << "fail to open serial port: " << serialName << std::endl;
+    return 0;
+  }
+  /* end */
 
-  // WebSocketWrapper ws("ws://localhost:5000/channel/test");
-  WebSocketWrapper ws("ws://122.112.211.178:8443");
+  WebSocketWrapper ws("ws://10.170.201.19:8443");
   std::shared_ptr<PeerConnection> pc;
   std::shared_ptr<DataChannel> dc;
 
@@ -86,15 +109,33 @@ int main() {
   };
 
   /* added by yaokaibin 20180911 */
-  std::function<void(std::string)> onDCRecvStrMsg = [](std::string msg) {
+  std::function<void(std::string)> onDCRecvStrMsg = [&autolabor, &serial](std::string msg) {
     std::cout << "DataChannel receive string message: " << msg << std::endl;
     Json::Value root;
     Json::Reader reader;
     if (reader.parse(msg, root)) {
       if (root["op"].asString() == "publish" && root["topic"].asString() == "/cmd_vel") {
-        std::string linearX = root["msg"]["linear"]["x"].asString();
-        std::string angularZ = root["msg"]["angular"]["z"].asString();
-        std::cout << "linearX: " << linearX << ", angularZ: " << angularZ << std::endl;
+        std::string linear_speed_str = root["msg"]["linear"]["x"].asString();
+        std::string angular_speed_str = root["msg"]["angular"]["z"].asString();
+        double linear_speed = atof(linear_speed_str.c_str());
+        double angular_speed = atof(angular_speed_str.c_str());
+        std::cout << "linear_speed: " << linear_speed << ", angular_speed: " << angular_speed << std::endl;
+
+        uint8_t* reset_cmd = autolabor.CreateResetCmd();
+        print_hex(reset_cmd, autolabor.RESET_CMD_LENGTH);
+        char result = serial.Write(reset_cmd, autolabor.RESET_CMD_LENGTH);
+        if (result == 0) {
+          std::cout << "write reset cmd to serial failed" << std::endl;
+        }
+        delete reset_cmd;
+
+        uint8_t* speed_cmd = autolabor.CreateSpeedCmd(linear_speed, angular_speed);
+        print_hex(speed_cmd, autolabor.SPEED_CMD_LENGTH);
+        result = serial.Write(speed_cmd, autolabor.SPEED_CMD_LENGTH);
+        if (result == 0) {
+          std::cout << "write speed cmd to serial failed" << std::endl;
+        }
+        delete speed_cmd;
       }
     }
   };
@@ -122,7 +163,7 @@ int main() {
       continue;
     }
     if (msg == "Hello Car_data") {
-      std::cout << "Hello from websocket server" << std::endl;
+      std::cout << "Registered with server" << std::endl;
       continue;
     }
     Json::Value root;
